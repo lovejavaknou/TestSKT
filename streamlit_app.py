@@ -471,6 +471,9 @@ def main():
                 status_text.text("자막을 가져오는 중...")
                 progress_bar.progress(20)
                 
+                logger.info(f"YouTube URL: {youtube_url}")
+                logger.info('convert_youtube_url: ', youtube_url.convert_youtube_url(youtube_url))
+
                 transcript = youtube_utils.get_youtube_transcript(youtube_url)
 
                 if transcript is None:
