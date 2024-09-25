@@ -512,23 +512,23 @@ def main():
                 logger.info('convert_youtube_url: %s', youtube_utils.convert_youtube_url(youtube_url))
 
                 
-                # transcript = youtube_utils.get_youtube_transcript(youtube_url)
+                transcript = youtube_utils.get_youtube_transcript(youtube_url)
 
-                url = youtube_utils.convert_youtube_url(youtube_url)
-                # Try to load the video content using the YoutubeLoader
-                try:
-                    loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
-                    content = loader.load()
-                # If the loader fails, try to get the transcript using the API
-                except Exception as e:
-                    logger.exception(f"YoutubeLoader를 통한 동영상 로드 실패: {str(e)}")
-                    transcript = get_youtube_transcript_api(url)
-                    if transcript:
-                        content = transcript
-                    else:
-                        content = None
+                # url = youtube_utils.convert_youtube_url(youtube_url)
+                # # Try to load the video content using the YoutubeLoader
+                # try:
+                #     loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
+                #     content = loader.load()
+                # # If the loader fails, try to get the transcript using the API
+                # except Exception as e:
+                #     logger.exception(f"YoutubeLoader를 통한 동영상 로드 실패: {str(e)}")
+                #     transcript = get_youtube_transcript_api(url)
+                #     if transcript:
+                #         content = transcript
+                #     else:
+                #         content = None
 
-                transcript = content
+                # transcript = content
 
                 logger.info(f"transcript: {transcript}")
 
