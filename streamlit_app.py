@@ -512,8 +512,7 @@ def main():
                 logger.info('convert_youtube_url: %s', youtube_utils.convert_youtube_url(youtube_url))
 
                 
-                transcript = youtube_utils.get_youtube_transcript(youtube_url)
-                logger.info(f"transcript: {transcript}")
+                # transcript = youtube_utils.get_youtube_transcript(youtube_url)
 
                 url = youtube_utils.convert_youtube_url(youtube_url)
                 # Try to load the video content using the YoutubeLoader
@@ -527,9 +526,11 @@ def main():
                     if transcript:
                         content = transcript
                     else:
-                        return None
+                        content = None
 
+                transcript = content
 
+                logger.info(f"transcript: {transcript}")
 
 
                 if transcript is None:
