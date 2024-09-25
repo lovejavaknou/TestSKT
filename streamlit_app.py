@@ -23,6 +23,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 
 # 여기에 youtube_utils 모듈이 있다고 가정합니다. 없다면 이 줄을 제거하거나 주석 처리하세요.
 import youtube_utils
+from langchain_community.document_loaders import YoutubeLoader
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -56,6 +57,32 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def get_youtube_transcript_api(url, languages=['ko', 'en']):
+    video_id = url.split("v=")[1]
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=languages)
+        return " ".join([entry['text'] for entry in transcript])
+    except Exception as e:
+        print(f"자막을 가져오는 데 실패했습니다: {str(e)}")
+        return None
+
+def get_youtube_transcript(url: str) -> str:
+    url = youtube_utils.convert_youtube_url(url)
+    # Try to load the video content using the YoutubeLoader
+    try:
+        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, languages=['ko', 'en'])
+        content = loader.load()
+    # If the loader fails, try to get the transcript using the API
+    except Exception as e:
+        transcript = get_youtube_transcript_api(url)
+        if transcript:
+            content = transcript
+        else:
+            return None
+    
+    return content
+
+
 # 이모티콘 애니메이션 추가
 def add_emoji_animation():
     emojis = ["👽", "💗", "👻"]
@@ -75,8 +102,6 @@ def add_emoji_animation():
 # 환경 변수에서 API 키 가져오기
 claude_api_key = st.secrets["ANTHROPIC_API_KEY"]
 youtube_api_key = st.secrets["YOUTUBE_API_KEY"]
-# claude_api_key = ''
-# youtube_api_key = ''
 
 def get_video_id(url):
     logger.debug(f"URL 파싱 시도: {url}")
@@ -142,23 +167,33 @@ def get_captions_from_youtube_api(youtube, video_id, max_retries=3):
 
 def get_video_details(youtube, video_id):
     try:
+        # 디버그 로그: 비디오 정보 가져오기 시도
         logger.debug(f"비디오 정보 가져오기 시도: {video_id}")
+        
+        # YouTube API 요청 생성: 비디오 ID에 해당하는 비디오의 snippet 정보를 요청
         request = youtube.videos().list(
             part="snippet",
             id=video_id
         )
+        
+        # API 요청 실행
         response = request.execute()
+        
+        # 응답에 'items' 키가 있고, 그 길이가 0보다 큰 경우 (즉, 비디오 정보를 성공적으로 가져온 경우)
         if 'items' in response and len(response['items']) > 0:
+            # 비디오의 제목과 설명을 반환
             return response['items'][0]['snippet']['title'], response['items'][0]['snippet']['description']
         else:
+            # 비디오 정보를 찾을 수 없는 경우 경고 로그와 사용자에게 오류 메시지 표시
             logger.warning(f"비디오 정보를 찾을 수 없습니다. 비디오 ID: {video_id}")
             st.error(f"비디오 정보를 찾을 수 없습니다. 비디오 ID: {video_id}")
             return None, None
     except Exception as e:
+        # 예외 발생 시 예외 로그와 사용자에게 오류 메시지 표시
         logger.exception(f"영상 정보를 가져오는 데 실패: {str(e)}")
         st.error(f"영상 정보를 가져오는 데 실패했습니다: {str(e)}")
         return None, None
-
+    
 def check_captions(youtube, video_id):
     try:
         captions = youtube.captions().list(
@@ -241,40 +276,42 @@ def summarize_long_transcript(client, transcript):
     return None
 
 def get_channel_videos(youtube, channel_id, max_results=50):
-    videos = []
-    next_page_token = None
-    start_date = datetime(2023, 1, 1).isoformat() + 'Z'
-    end_date = datetime(2024, 12, 31).isoformat() + 'Z'
+    # videos = []
+    # next_page_token = None
+    # start_date = datetime(2023, 1, 1).isoformat() + 'Z'
+    # end_date = datetime(2024, 12, 31).isoformat() + 'Z'
 
-    while True:
-        request = youtube.search().list(
-            part="id,snippet",
-            channelId=channel_id,
-            maxResults=min(max_results, 50),
-            order="date",
-            type="video",
-            publishedAfter=start_date,
-            publishedBefore=end_date,
-            pageToken=next_page_token
-        )
-        response = request.execute()
+    # while True:
+    #     request = youtube.search().list(
+    #         part="id,snippet",
+    #         channelId=channel_id,
+    #         maxResults=min(max_results, 50),
+    #         order="date",
+    #         type="video",
+    #         publishedAfter=start_date,
+    #         publishedBefore=end_date,
+    #         pageToken=next_page_token
+    #     )
+    #     response = request.execute()
         
-        for item in response['items']:
-            video_id = item['id']['videoId']
-            title = item['snippet']['title']
+    #     for item in response['items']:
+    #         video_id = item['id']['videoId']
+    #         title = item['snippet']['title']
             
-            # 조회수 가져오기
-            video_response = youtube.videos().list(
-                part='statistics',
-                id=video_id
-            ).execute()
+    #         # 조회수 가져오기
+    #         video_response = youtube.videos().list(
+    #             part='statistics',
+    #             id=video_id
+    #         ).execute()
             
-            view_count = int(video_response['items'][0]['statistics']['viewCount'])
-            videos.append((title, view_count))
+    #         view_count = int(video_response['items'][0]['statistics']['viewCount'])
+    #         videos.append((title, view_count))
         
-        next_page_token = response.get('nextPageToken')
-        if not next_page_token or len(videos) >= max_results:
-            break
+    #     next_page_token = response.get('nextPageToken')
+    #     if not next_page_token or len(videos) >= max_results:
+    #         break
+
+    videos = [('[날씨] 가을 햇살에 한낮엔 더워…큰 일교차 유의 / 연합뉴스TV (YonhapnewsTV)', 72), ('넷플릭스 &#39;흑백요리사&#39; 공개 첫 주 비영어권 1위 / 연합뉴스TV (YonhapnewsTV)', 29), ('[뉴스포커스] 윤 대통령-여 지도부 만찬…야, 재보선 신경전 가열 / 연합뉴스TV (YonhapnewsTV)', 67), ('&quot;인도 규제당국, 현대차 인도법인 IPO 승인&quot; / 연합뉴스TV (YonhapnewsTV)', 28), ('&#39;필리핀 이모&#39; 이탈에 대책 고심…주급제·통금시간 연장 / 연합뉴스TV (YonhapnewsTV)', 61), ('&#39;맥도날드 &#39;이중가격제&#39; 공지…&quot;배달 메뉴가 더 비싸&quot; / 연합뉴스TV (YonhapnewsTV)', 75), ('[뉴스포커스] 이스라엘, 헤즈볼라 &#39;융단폭격&#39;…레바논서 558명 사망 / 연합뉴스TV (YonhapnewsTV)', 869), ('마지막 유엔 연설 바이든 &quot;협력&quot;…트럼프 &quot;미국 우선&quot; / 연합뉴스TV (YonhapnewsTV)', 47), ('북한 오물 풍선에 인천·김포공항 올해 413분 운영 중단 / 연합뉴스TV (YonhapnewsTV)', 394), ('[날씨] 전국 흐리고 일교차 커…곳곳 약한 비 / 연합뉴스TV (YonhapnewsTV)', 428), ('[뉴스쏙] 폭염에 지각한 단풍…설악산 10월 하순에야 절정 | 이달 말까지는 낮에 30도…&#39;진짜 가을&#39;은 10월부터 / 연합뉴스TV (YonhapnewsTV)', 12011), ('&#39;집값 더 오른다&#39;…9월 주택가격전망지수 3년 만에 최고 / 연합뉴스TV (YonhapnewsTV)', 112), ('[뉴스쏙] 우크라 &quot;러 국경 돌파 두 번째 작전 성공&quot;vs러 &quot;돌파 시도 바로 격퇴…인접 지역에서 공격&quot;｜젤렌스키 &quot;전쟁 거의 끝나가&quot;…무기 사용제한 해제 요청', 59016), ('[뉴스쏙] &#39;홍명보논란&#39; 축구협회 현안질의 &#39;맨 오브 더 매치(MOM)&#39;박문성…&quot;정몽규 무능&quot;｜이임생 축구협회 이사, 국회 현안질의 도중 사퇴선언｜숱한논란속 홍명보·정몽규 직진선택', 32396), ('[핫클릭] &#39;세금 체납&#39; 박유천, 일본서 가수로 정식 데뷔 外 / 연합뉴스TV (YonhapnewsTV)', 136), ('[뉴스초점] 정몽규·홍명보 성토장 된 국회…&quot;계모임보다 못해&quot; / 연합뉴스TV (YonhapnewsTV)', 1468), ('[뉴스쏙] CNN &quot;해리스 48% vs 트럼프 47%&quot;…로이터도 해리스 우위 예상｜백임 남성 트럼프 확고한 지지…흑인·히스패닉, 해리스에 관심 / 연합뉴스TV', 4698), ('[뉴스쏙] 주미대사 &quot;북 도발 가능성, 한미 공조&quot;…바이든은 &#39;북한 패싱&#39;｜한미 &quot;북 심상치 않은 행보&quot;…중대 도발 전조 평가｜김여정, 한국 찾은 美 핵잠수함 위협 / 연합뉴스TV', 5344), ('[뉴스쏙] &#39;찐 가을&#39; 오려면 더 기다려야…9월말까지 낮 더위｜역대급 폭염에 단풍은 10월초부터…확 달라진 계절 / 연합뉴스TV (YonhapnewsTV)', 2062), ('&#39;핵 탑재 가능&#39; 러 폭격기, 북극해 등 비행 / 연합뉴스TV (YonhapnewsTV)', 303), ('젤렌스키 &quot;러, 북한·이란 전쟁범죄 공범 만들어&quot; / 연합뉴스TV (YonhapnewsTV)', 193), ('[이시각헤드라인] 9월 25일 라이브투데이2부 / 연합뉴스TV (YonhapnewsTV)', 236), ('[출근길 인터뷰] 남양주 광릉숲, &#39;1년에 한 번&#39; 비공개 숲길 개방 / 연합뉴스TV (YonhapnewsTV)', 173), ('[날씨] 아침 쌀쌀·한낮 포근 큰 일교차 유의…경남 약한 비 / 연합뉴스TV (YonhapnewsTV)', 808), ('[3분증시] 중국발 훈풍에 글로벌 증시 강세…코스피, 오름세 이어갈까 / 연합뉴스TV (YonhapnewsTV)', 153), ('&quot;해리스 48% vs 트럼프 47%&quot;…초박빙 계속 / 연합뉴스TV (YonhapnewsTV)', 528), ('검찰 수심위, 명품백 전달 &#39;최재영 기소&#39; 권고…8대7 의견 / 연합뉴스TV (YonhapnewsTV)', 209), ('박소연 전 케어 대표, 공무집행방해 징역형 집유 확정 / 연합뉴스TV (YonhapnewsTV)', 294), ('&quot;공천해 줄게&quot; 1억 가로챈 전 언론인 징역 2년 / 연합뉴스TV (YonhapnewsTV)', 148), ('&#39;나비박사&#39; 석주명 선생 곤충표본, 90년 만에 일본서 귀환 / 연합뉴스TV (YonhapnewsTV)', 159), ('전북 순창서 SUV가 오토바이 추돌…오토바이 운전자 사망 / 연합뉴스TV (YonhapnewsTV)', 257), ('한은의 경고…&quot;엔캐리 자금 2천억달러 청산 가능성&quot; / 연합뉴스TV (YonhapnewsTV)', 237), ('[날씨] 오늘도 일교차 큰 날씨 이어져…강한 너울 유의 / 연합뉴스TV (YonhapnewsTV)', 588), ('[사건사고] 고속도로 화물차 화재…타워팰리스 주차장서도 불 / 연합뉴스TV (YonhapnewsTV)', 403), ('[글로벌증시] 다우·S&amp;P500 또 사상 최고치…엔비디아, 120달러선 탈환 / 연합뉴스TV (YonhapnewsTV)', 180), ('추석 비상 주간 오늘까지…정부 &quot;응급의료 지원 연장&quot; / 연합뉴스TV (YonhapnewsTV)', 368), ('강원대 축제 흉기 난동 예고 20대 &quot;재미로 그랬다&quot; / 연합뉴스TV (YonhapnewsTV)', 312), ('소비자심리 두 달째 하락…집값 전망은 상승 / 연합뉴스TV (YonhapnewsTV)', 303), ('경부고속도로 서초IC서 버스 화재…인명피해 없어 / 연합뉴스TV (YonhapnewsTV)', 738), ('윤 대통령, 민단 간담회서 &quot;한일 우호 협력 관계 발전&quot; / 연합뉴스TV (YonhapnewsTV)', 177), ('[날씨클릭] 아침·저녁에는 쌀쌀해요…일교차 15도 안팎 / 연합뉴스TV (YonhapnewsTV)', 1194), ('[이 시각 핫뉴스] 부산 제과점 빵에서 500원 동전 크기 자석 나와 外 / 연합뉴스TV (YonhapnewsTV)', 398), ('&#39;최재영 수심위&#39; 청탁금지법 기소 권고…한 표 차로 엇갈려 / 연합뉴스TV (YonhapnewsTV)', 2791), ('&quot;민주, 호남 국민의힘&quot;…&quot;조국혁신당 사과·총장 해임&quot; / 연합뉴스TV (YonhapnewsTV)', 974), ('윤대통령·여 지도부, 90분 용산 만찬…한동훈, 독대 재요청 / 연합뉴스TV (YonhapnewsTV)', 3515), ('검찰 수심위, 명품백 전달 &#39;최재영 기소&#39; 권고…8대7 의견 / 연합뉴스TV (YonhapnewsTV)', 7128), ('[날씨] 큰 일교차 유의…내일 남해안·제주 중심 비 / 연합뉴스TV (YonhapnewsTV)', 938), ('[뉴스쏙] 이스라엘, 레바논에 24시간 동안 650차례 공습｜어린이·여성 등 최소 492명 사망·1,654명 부상｜유엔, &#39;수백 명 사망·긴장 고조&#39;에 강한 우려 표명', 5308), ('[뉴스쏙] 엎치락뒤치락 美 대선…경합주 승패 따라 승리 방정식 복잡｜해리스 캠프 &quot;트럼프는 여론조사보다 실제 선거에 강해&quot; 경계｜트럼프, 남부 경합주서 해리스에 2~5%p 우위달성', 4677), ('&#39;K-철도&#39; 글로벌 수출 속도…타지키스탄 진출하나 / 연합뉴스TV (YonhapnewsTV)', 1843)]
 
     return videos
 
@@ -474,7 +511,26 @@ def main():
                 logger.info(f"YouTube URL: {youtube_url}")
                 logger.info('convert_youtube_url: %s', youtube_utils.convert_youtube_url(youtube_url))
 
+                
                 transcript = youtube_utils.get_youtube_transcript(youtube_url)
+                logger.info(f"transcript: {transcript}")
+
+                url = youtube_utils.convert_youtube_url(youtube_url)
+                # Try to load the video content using the YoutubeLoader
+                try:
+                    loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, languages=['ko', 'en'])
+                    content = loader.load()
+                # If the loader fails, try to get the transcript using the API
+                except Exception as e:
+                    logger.exception(f"YoutubeLoader를 통한 동영상 로드 실패: {str(e)}")
+                    transcript = get_youtube_transcript_api(url)
+                    if transcript:
+                        content = transcript
+                    else:
+                        return None
+
+
+
 
                 if transcript is None:
                     logger.warning("YouTubeTranscriptApi를 통한 자막 가져오기 실패. YouTube Data API를 통해 시도합니다.")
@@ -499,12 +555,16 @@ def main():
                 original_title, original_description = get_video_details(youtube, video_id)
                 if original_title is None or original_description is None:
                     return
+                
+                logger.info(f"비디오 정보: 제목='{original_title}', 설명='{original_description}'")
 
                 # 채널 영상 정보 가져오기
                 status_text.text("채널 영상 정보를 분석하는 중...")
                 progress_bar.progress(60)
                 channel_id = "UCTHCOPwqNfZ0uiKOvFyhGwg"
                 channel_videos = get_channel_videos(youtube, channel_id)
+
+                logger.info(f"채널 영상 정보: {channel_videos}")
 
                 # 요약 생성
                 status_text.text("영상을 요약하는 중...")
@@ -513,11 +573,15 @@ def main():
                 if not summary:
                     st.error("영상 요약을 생성할 수 없습니다.")
                     return
+                
+                logger.info(f"요약 생성 완료: {summary}")
 
                 # 콘텐츠 생성
                 status_text.text("콘텐츠를 생성하는 중...")
                 progress_bar.progress(90)
                 content = generate_content(claude_client, summary, original_title, original_description, channel_videos)
+
+                logger.info(f"콘텐츠 생성 완료: {content}")
 
                 # 결과 표시
                 progress_bar.progress(100)
