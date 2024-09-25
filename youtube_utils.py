@@ -47,7 +47,7 @@ def get_youtube_transcript(url: str) -> str:
     url = convert_youtube_url(url)
     # Try to load the video content using the YoutubeLoader
     try:
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, languages=['ko', 'en'])
+        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
         content = loader.load()
     # If the loader fails, try to get the transcript using the API
     except Exception as e:
