@@ -57,6 +57,41 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+def get_youtube_transcript_api(url, languages=['ko', 'en']):
+    video_id = url.split("v=")[1]
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=languages)
+        return " ".join([entry['text'] for entry in transcript])
+    except Exception as e:
+        print(f"자막을 가져오는 데 실패했습니다: {str(e)}")
+        return None
+    
+def get_youtube_transcript(url: str) -> str:
+    url = youtube_utils.convert_youtube_url(url)
+    # Try to load the video content using the YoutubeLoader
+    logger.debug(f"유튜브 URL: {url}")
+    transcript = None
+    try:
+        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
+        content = loader.load()
+        if content:
+            transcript = content[0].page_content
+        logger.debug(f"로더를 통해 가져온 자막: {transcript}")
+    # If the loader fails, try to get the transcript using the API
+    except Exception as e:
+        logger.debug(f"로더 실패: {str(e)}")
+        transcript = get_youtube_transcript_api(url)
+        logger.debug(f"API를 통해 가져온 자막: {transcript}")
+    
+    if not transcript:
+        logger.warning("자막을 가져오는 데 실패했습니다. 다시 시도합니다.")
+        transcript = get_youtube_transcript_api(url)
+        logger.debug(f"재시도 후 가져온 자막: {transcript}")
+    
+    return transcript
+
+
 # 이모티콘 애니메이션 추가
 def add_emoji_animation():
     emojis = ["👽", "💗", "👻"]
