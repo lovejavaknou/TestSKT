@@ -46,18 +46,21 @@ def get_youtube_transcript_api(url, languages=['ko', 'en']):
 def get_youtube_transcript(url: str) -> str:
     url = convert_youtube_url(url)
     # Try to load the video content using the YoutubeLoader
+    transcript = None
     try:
         loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
         content = loader.load()
+        # content가 빈 값이 아니면
+        if content:
+            transcript = content[0].page_content
     # If the loader fails, try to get the transcript using the API
     except Exception as e:
         transcript = get_youtube_transcript_api(url)
-        if transcript:
-            content = transcript
-        else:
-            return None
     
-    return content
+    if not transcript:
+        transcript = get_youtube_transcript_api(url)
+    
+    return transcript
 
 
 def main():

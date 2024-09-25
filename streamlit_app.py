@@ -57,32 +57,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def get_youtube_transcript_api(url, languages=['ko', 'en']):
-    video_id = url.split("v=")[1]
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=languages)
-        return " ".join([entry['text'] for entry in transcript])
-    except Exception as e:
-        print(f"자막을 가져오는 데 실패했습니다: {str(e)}")
-        return None
-
-def get_youtube_transcript(url: str) -> str:
-    url = youtube_utils.convert_youtube_url(url)
-    # Try to load the video content using the YoutubeLoader
-    try:
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
-        content = loader.load()
-    # If the loader fails, try to get the transcript using the API
-    except Exception as e:
-        transcript = get_youtube_transcript_api(url)
-        if transcript:
-            content = transcript
-        else:
-            return None
-    
-    return content
-
-
 # 이모티콘 애니메이션 추가
 def add_emoji_animation():
     emojis = ["👽", "💗", "👻"]
@@ -513,22 +487,6 @@ def main():
 
                 
                 transcript = youtube_utils.get_youtube_transcript(youtube_url)
-
-                # url = youtube_utils.convert_youtube_url(youtube_url)
-                # # Try to load the video content using the YoutubeLoader
-                # try:
-                #     loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=['ko', 'en'])
-                #     content = loader.load()
-                # # If the loader fails, try to get the transcript using the API
-                # except Exception as e:
-                #     logger.exception(f"YoutubeLoader를 통한 동영상 로드 실패: {str(e)}")
-                #     transcript = get_youtube_transcript_api(url)
-                #     if transcript:
-                #         content = transcript
-                #     else:
-                #         content = None
-
-                # transcript = content
 
                 logger.info(f"transcript: {transcript}")
 
