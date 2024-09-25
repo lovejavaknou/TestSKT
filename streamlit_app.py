@@ -521,7 +521,7 @@ def main():
                 logger.info('convert_youtube_url: %s', youtube_utils.convert_youtube_url(youtube_url))
 
                 
-                transcript = youtube_utils.get_youtube_transcript(youtube_url)
+                transcript = get_youtube_transcript(youtube_url)
 
                 logger.info(f"transcript: {transcript}")
 
